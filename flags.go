@@ -24,6 +24,22 @@ func (f *Flags) getCarry() bool {
 	return (f.flagarr[0])
 }
 
+func (f *Flags) setH(in bool) {
+	f.flagarr[1] = in
+}
+
+func (f *Flags) getH() bool {
+	return (f.flagarr[1])
+}
+
+func (f *Flags) setN(in bool) {
+	f.flagarr[2] = in
+}
+
+func (f *Flags) getN() bool {
+	return (f.flagarr[2])
+}
+
 func (f *Flags) setZero(in bool) {
 	f.flagarr[3] = in
 }

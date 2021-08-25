@@ -26,6 +26,7 @@ func (r *Register) setAF(af uint16) {
 	r.f.flagsFromByte(getLower8(af))
 }
 
+//TODO: change these to use toWord
 func (r *Register) BC() uint16 {
 	return uint16(r.b)<<8 | uint16(r.c)
 }
@@ -55,6 +56,10 @@ func (r *Register) setHL(hl uint16) {
 
 func (r *Register) incPC() {
 	r.pc = (r.pc + 1) & 0xffff
+}
+
+func (r *Register) decHL() {
+	r.setHL((r.HL() - 1) & 0xffff)
 }
 
 func (r *Register) decSP() {
