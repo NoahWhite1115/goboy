@@ -6,5 +6,4 @@ func main() {
 	for {
 		cpu.runCommand()
 	}
-
 }

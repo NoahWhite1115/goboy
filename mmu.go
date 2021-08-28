@@ -14,7 +14,11 @@ func newMMU() *MMU {
 }
 
 func (mmu *MMU) readByte(address uint16) uint8 {
-	return mmu.bios[address]
+	if address < 0xff {
+		return mmu.bios[address]
+	}
+
+	return mmu.addr[address]
 }
 
 func (mmu *MMU) setByte(address uint16, data uint8) {

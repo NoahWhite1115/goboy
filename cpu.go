@@ -27,16 +27,16 @@ func (cpu *CPU) runCommand() int {
 
 	//get next instruction code
 	pc := cpu.register.pc
-	opcode := cpu.mmu.readByte(pc)
+	opcode := uint16(cpu.mmu.readByte(pc))
 	pc++
 
 	//get command from list using code
 	var command *Command
 
 	if opcode == 0xcb {
-		opcode = cpu.mmu.readByte(pc)
+		opcode = uint16(cpu.mmu.readByte(pc))
 		pc++
-		//TODO: change this to new opcode set or find a better way to hash this
+		opcode = opcode + 0x100
 		command = cpu.opcodes[opcode]
 	} else {
 		command = cpu.opcodes[opcode]
@@ -56,6 +56,7 @@ func (cpu *CPU) runCommand() int {
 	}
 
 	//run the command
+	command.printCmd(args)
 	command.op(cpu.register, cpu.mmu, args)
 
 	//update program counter

@@ -15,6 +15,28 @@ func newRegister() *Register {
 	return reg
 }
 
+func (r *Register) getByByte(find uint8) uint8 {
+	switch find {
+	case 'a':
+		return r.a
+	case 'b':
+		return r.b
+	case 'c':
+		return r.c
+	case 'd':
+		return r.d
+	case 'e':
+		return r.e
+	case 'h':
+		return r.h
+	case 'l':
+		return r.b
+	}
+
+	//need to set default case better
+	return r.a
+}
+
 //sort registers by pairings
 
 func (r *Register) AF() uint16 {
@@ -55,19 +77,15 @@ func (r *Register) setHL(hl uint16) {
 }
 
 func (r *Register) incPC() {
-	r.pc = (r.pc + 1) & 0xffff
-}
-
-func (r *Register) decHL() {
-	r.setHL((r.HL() - 1) & 0xffff)
+	r.pc = r.pc + 1
 }
 
 func (r *Register) decSP() {
-	r.sp = (r.sp - 1) & 0xffff
+	r.sp = r.sp - 1
 }
 
 func (r *Register) incSP() {
-	r.sp = (r.sp + 1) & 0xffff
+	r.sp = r.sp + 1
 }
 
 func getUpper8(val uint16) uint8 {
