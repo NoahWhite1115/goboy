@@ -37,6 +37,26 @@ func (r *Register) getByByte(find uint8) uint8 {
 	return r.a
 }
 
+func (r *Register) setByByte(find uint8, val uint8) {
+	switch find {
+	case 'a':
+		r.a = val
+	case 'b':
+		r.b = val
+	case 'c':
+		r.c = val
+	case 'd':
+		r.d = val
+	case 'e':
+		r.e = val
+	case 'h':
+		r.h = val
+	case 'l':
+		r.l = val
+	}
+
+}
+
 //sort registers by pairings
 
 func (r *Register) AF() uint16 {
@@ -86,12 +106,4 @@ func (r *Register) decSP() {
 
 func (r *Register) incSP() {
 	r.sp = r.sp + 1
-}
-
-func getUpper8(val uint16) uint8 {
-	return uint8(val >> 8)
-}
-
-func getLower8(val uint16) uint8 {
-	return uint8(val & 0xff)
 }

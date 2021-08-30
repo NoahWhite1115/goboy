@@ -13,29 +13,28 @@ type CPU struct {
 }
 
 //constructor
-func newCPU() *CPU {
+func newCPU(mmu *MMU) *CPU {
 	cpu := new(CPU)
 	cpu.register = newRegister()
-	cpu.mmu = newMMU()
 	cpu.opcodes = makeOpCodes()
 
+	cpu.mmu = mmu
 	return cpu
 }
 
-func (cpu *CPU) runCommand() int {
+func (cpu *CPU) runCommand() uint8 {
 	//TODO: interrupt handler
 
 	//get next instruction code
-	pc := cpu.register.pc
-	opcode := uint16(cpu.mmu.readByte(pc))
-	pc++
+	opcode := uint16(cpu.mmu.readByte(cpu.register.pc))
+	cpu.register.incPC()
 
 	//get command from list using code
 	var command *Command
 
 	if opcode == 0xcb {
-		opcode = uint16(cpu.mmu.readByte(pc))
-		pc++
+		opcode = uint16(cpu.mmu.readByte(cpu.register.pc))
+		cpu.register.incPC()
 		opcode = opcode + 0x100
 		command = cpu.opcodes[opcode]
 	} else {
@@ -51,16 +50,13 @@ func (cpu *CPU) runCommand() int {
 	//extract arguments from mem
 	args := make([]uint8, command.argsLen)
 	for i := 0; i < command.argsLen; i++ {
-		args[i] = cpu.mmu.readByte(pc)
-		pc++
+		args[i] = cpu.mmu.readByte(cpu.register.pc)
+		cpu.register.incPC()
 	}
 
 	//run the command
-	command.printCmd(args)
+	command.printCmd(args, cpu.register)
 	command.op(cpu.register, cpu.mmu, args)
 
-	//update program counter
-	cpu.register.pc = pc
-
-	return 1
+	return command.ticks
 }

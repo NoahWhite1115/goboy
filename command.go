@@ -6,13 +6,13 @@ import (
 )
 
 type Command struct {
-	ticks   int
+	ticks   uint8
 	argsLen int
 	op      func(*Register, *MMU, []uint8)
 	desc    string
 }
 
-func newCommand(ticks int, argsLen int, desc string, op func(*Register, *MMU, []uint8)) *Command {
+func newCommand(ticks uint8, argsLen int, desc string, op func(*Register, *MMU, []uint8)) *Command {
 	cmd := new(Command)
 	cmd.ticks = ticks
 	cmd.argsLen = argsLen
@@ -22,18 +22,15 @@ func newCommand(ticks int, argsLen int, desc string, op func(*Register, *MMU, []
 	return cmd
 }
 
-//TODO: move this to it's own file
-func toWord(msb, lsb uint8) uint16 {
-	word := uint16(msb)<<8 | uint16(lsb)
-	return word
-}
-
-func (cmd *Command) printCmd(a []uint8) {
+func (cmd *Command) printCmd(a []uint8, r *Register) {
 	out := cmd.desc
 	for _, v := range a {
 		out += " "
 		out += strconv.Itoa(int(v))
 	}
+
+	out += " "
+	out += strconv.Itoa(int(r.pc))
 	log.Println(out)
 }
 
@@ -59,16 +56,6 @@ func makeOpCodes() []*Command {
 			r.setBC(r.BC() + 1)
 		})
 
-	opCodeArr[0x04] = newCommand(4, 0, "INC B",
-		func(r *Register, m *MMU, a []uint8) {
-			r.b = inc(r.b, r.f)
-		})
-
-	opCodeArr[0x05] = newCommand(4, 0, "DEC B",
-		func(r *Register, m *MMU, a []uint8) {
-			r.b = dec(r.b, r.f)
-		})
-
 	opCodeArr[0x06] = newCommand(8, 1, "LD B, n",
 		func(r *Register, m *MMU, a []uint8) {
 			r.b = a[0]
@@ -82,11 +69,6 @@ func makeOpCodes() []*Command {
 	opCodeArr[0x0c] = newCommand(4, 0, "INC C",
 		func(r *Register, m *MMU, a []uint8) {
 			r.c = inc(r.c, r.f)
-		})
-
-	opCodeArr[0x0d] = newCommand(4, 0, "DEC C",
-		func(r *Register, m *MMU, a []uint8) {
-			r.c = dec(r.c, r.f)
 		})
 
 	opCodeArr[0x0e] = newCommand(8, 1, "LD C, n",
@@ -114,14 +96,25 @@ func makeOpCodes() []*Command {
 			r.d = a[0]
 		})
 
+	opCodeArr[0x17] = newCommand(4, 0, "RLA",
+		func(r *Register, m *MMU, a []uint8) {
+			r.a = rotLeft(r.a, r.f)
+			r.f.setZero(false)
+		})
+
 	opCodeArr[0x18] = newCommand(8, 1, "JR n",
 		func(r *Register, m *MMU, a []uint8) {
-			r.pc = r.pc + uint16(a[0])
+			r.pc = uint16(int(r.pc) + int(int8(a[0])))
 		})
 
 	opCodeArr[0x1a] = newCommand(8, 0, "LD A,(DE)",
 		func(r *Register, m *MMU, a []uint8) {
 			r.a = m.readByte(r.DE())
+		})
+
+	opCodeArr[0x1c] = newCommand(4, 0, "INC E",
+		func(r *Register, m *MMU, a []uint8) {
+			r.e = inc(r.e, r.f)
 		})
 
 	opCodeArr[0x1e] = newCommand(8, 1, "LD E, n",
@@ -130,10 +123,11 @@ func makeOpCodes() []*Command {
 		})
 
 	//TODO: set ticks to be variable
+	//TODO: correct behavior here
 	opCodeArr[0x20] = newCommand(8, 1, "JR NZ, n",
 		func(r *Register, m *MMU, a []uint8) {
 			if !r.f.getZero() {
-				r.pc = r.pc + uint16(a[0])
+				r.pc = uint16(int(r.pc) + int(int8(a[0])))
 			}
 		})
 
@@ -153,6 +147,11 @@ func makeOpCodes() []*Command {
 			r.setHL(r.HL() + 1)
 		})
 
+	opCodeArr[0x24] = newCommand(4, 0, "INC H",
+		func(r *Register, m *MMU, a []uint8) {
+			r.h = inc(r.h, r.f)
+		})
+
 	opCodeArr[0x26] = newCommand(8, 1, "LD H, n",
 		func(r *Register, m *MMU, a []uint8) {
 			r.h = a[0]
@@ -162,7 +161,7 @@ func makeOpCodes() []*Command {
 	opCodeArr[0x28] = newCommand(8, 1, "JR Z, n",
 		func(r *Register, m *MMU, a []uint8) {
 			if r.f.getZero() {
-				r.pc = r.pc + uint16(a[0])
+				r.pc = uint16(int(r.pc) + int(int8(a[0])))
 			}
 		})
 
@@ -194,6 +193,22 @@ func makeOpCodes() []*Command {
 		})
 
 	for i, v := range [6]uint8{'b', 'c', 'd', 'e', 'h', 'l'} {
+
+		v := v
+
+		opCodeArr[0x04+i*0x08] = newCommand(4, 0, "INC "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				val := r.getByByte(v)
+				val = inc(val, r.f)
+				r.setByByte(v, val)
+			})
+
+		opCodeArr[0x05+i*0x08] = newCommand(4, 0, "DEC "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				val := r.getByByte(v)
+				val = dec(val, r.f)
+				r.setByByte(v, val)
+			})
 
 		opCodeArr[0x40+i] = newCommand(4, 0, "LD B, "+string(v),
 			func(r *Register, m *MMU, a []uint8) {
@@ -230,32 +245,47 @@ func makeOpCodes() []*Command {
 				val := r.getByByte(v)
 				r.l = val
 			})
+
+		opCodeArr[0x78+i] = newCommand(4, 0, "LD A, "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				val := r.getByByte(v)
+				r.a = val
+			})
+
+		opCodeArr[0x47+i*0x08] = newCommand(4, 0, "LD "+string(v)+", A",
+			func(r *Register, m *MMU, a []uint8) {
+				r.setByByte(v, r.a)
+			})
+
+		opCodeArr[0x90+i] = newCommand(4, 0, "SUB A, "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				val := r.getByByte(v)
+				r.a = sub(r.a, val, r.f)
+			})
+
+		opCodeArr[0xa8+i] = newCommand(4, 0, "XOR A, "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				val := r.getByByte(v)
+				r.a = xor(r.a, val, r.f)
+			})
+
+		opCodeArr[0xb8+i] = newCommand(4, 0, "CP A, "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				val := r.getByByte(v)
+				sub(r.a, val, r.f)
+			})
+
+		opCodeArr[0x110+i] = newCommand(8, 0, "RL "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				val := r.getByByte(v)
+				val = rotLeft(val, r.f)
+				r.setByByte(v, val)
+			})
 	}
-
-	//TODO: Merge these into for loop above?
-	opCodeArr[0x47] = newCommand(4, 0, "LD D, A",
-		func(r *Register, m *MMU, a []uint8) {
-			r.d = r.a
-		})
-
-	opCodeArr[0x57] = newCommand(4, 0, "LD D, A",
-		func(r *Register, m *MMU, a []uint8) {
-			r.d = r.a
-		})
-
-	opCodeArr[0x67] = newCommand(4, 0, "LD H, A",
-		func(r *Register, m *MMU, a []uint8) {
-			r.h = r.a
-		})
 
 	opCodeArr[0x77] = newCommand(8, 0, "LD (HL), A",
 		func(r *Register, m *MMU, a []uint8) {
 			m.setByte(r.HL(), r.a)
-		})
-
-	opCodeArr[0x7b] = newCommand(4, 0, "LD A, E",
-		func(r *Register, m *MMU, a []uint8) {
-			r.a = r.e
 		})
 
 	opCodeArr[0xaf] = newCommand(4, 0, "XOR A, A",
@@ -263,9 +293,29 @@ func makeOpCodes() []*Command {
 			r.a = xor(r.a, r.a, r.f)
 		})
 
+	opCodeArr[0xc1] = newCommand(12, 0, "POP BC",
+		func(r *Register, m *MMU, a []uint8) {
+			r.setBC(pop(r, m))
+		})
+
+	opCodeArr[0xc5] = newCommand(16, 0, "PUSH BC",
+		func(r *Register, m *MMU, a []uint8) {
+			push(r, m, r.BC())
+		})
+
+	opCodeArr[0xce] = newCommand(8, 1, "ADC A, u8",
+		func(r *Register, m *MMU, a []uint8) {
+			r.a = addC(r.a, a[0], r.f)
+		})
+
 	opCodeArr[0xcd] = newCommand(24, 2, "CALL u16",
 		func(r *Register, m *MMU, a []uint8) {
 			call(r, m, toWord(a[1], a[0]))
+		})
+
+	opCodeArr[0xc9] = newCommand(16, 0, "RET",
+		func(r *Register, m *MMU, a []uint8) {
+			r.pc = pop(r, m)
 		})
 
 	opCodeArr[0xe0] = newCommand(8, 1, "LD (FF00+u8), A",
@@ -288,6 +338,11 @@ func makeOpCodes() []*Command {
 			r.a = m.readByte(uint16(0xff00) + uint16(a[0]))
 		})
 
+	opCodeArr[0xf2] = newCommand(8, 0, "LD A, (FF00+C)",
+		func(r *Register, m *MMU, a []uint8) {
+			r.a = m.readByte(uint16(0xff00) + uint16(r.c))
+		})
+
 	opCodeArr[0xfe] = newCommand(8, 1, "CP A, u8",
 		func(r *Register, m *MMU, a []uint8) {
 			sub(r.a, a[0], r.f)
@@ -296,6 +351,8 @@ func makeOpCodes() []*Command {
 	//build bitwise ops
 	for bit := uint8(0); bit < 8; bit += 1 {
 		//A register bit ops
+		bit := bit
+
 		opCodeArr[0x100+0x47+0x08*uint16(bit)] = newCommand(8, 0, "BIT "+strconv.Itoa(int(bit))+", A",
 			func(r *Register, m *MMU, a []uint8) {
 				bitCheck(r.a, bit, r.f)
@@ -386,16 +443,26 @@ func inc(val uint8, f *Flags) uint8 {
 }
 
 func dec(val uint8, f *Flags) uint8 {
-	newVal := (val - 1)
+	newVal := val - 1
 	f.setZero(newVal == 0)
 	f.setN(true)
 	f.setH((0x0f & newVal) == 0)
 	return newVal
 }
 
+func pop(r *Register, m *MMU) uint16 {
+
+	l := m.readByte(r.sp)
+	r.incSP()
+	h := m.readByte(r.sp)
+	r.incSP()
+
+	return toWord(h, l)
+}
+
 func push(r *Register, m *MMU, val uint16) {
-	h := uint8(val >> 4)
-	l := uint8(val & 0xff)
+	h := getUpper8(val)
+	l := getLower8(val)
 
 	r.decSP()
 	m.setByte(r.sp, h)
@@ -407,4 +474,30 @@ func call(r *Register, m *MMU, val uint16) {
 
 	push(r, m, r.pc+2)
 	r.pc = val
+}
+
+func rotLeft(val uint8, f *Flags) uint8 {
+	newVal := val << 7
+	if f.getCarry() {
+		newVal |= 1
+	}
+
+	f.setCarry((val & 1 << 7) != 0)
+	f.setZero(newVal == 0)
+	f.setN(false)
+	f.setH(false)
+	return newVal
+}
+
+func addC(i1, i2 uint8, f *Flags) uint8 {
+	var carry uint8 = 0
+	if f.getCarry() {
+		carry = 1
+	}
+	f.setZero((i1 + i2 + carry) == 0)
+	f.setN(false)
+	f.setH((i1&0x0f)+(i2&0x0f)+carry > 0x0f)
+	//convert to int here bc go wraps around naturally for bytes
+	f.setCarry(int(i1)+int(i2)+int(carry) > 0xff)
+	return (i1 + i2 + carry)
 }
