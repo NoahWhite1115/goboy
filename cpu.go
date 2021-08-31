@@ -22,7 +22,7 @@ func newCPU(mmu *MMU) *CPU {
 	return cpu
 }
 
-func (cpu *CPU) runCommand() uint8 {
+func (cpu *CPU) runCommand(debug bool) uint8 {
 	//TODO: interrupt handler
 
 	//get next instruction code
@@ -55,7 +55,9 @@ func (cpu *CPU) runCommand() uint8 {
 	}
 
 	//run the command
-	command.printCmd(args, cpu.register)
+	if debug {
+		command.printCmd(args, cpu.register)
+	}
 	command.op(cpu.register, cpu.mmu, args)
 
 	return command.ticks

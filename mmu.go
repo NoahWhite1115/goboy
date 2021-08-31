@@ -10,8 +10,6 @@ type MMU struct {
 
 func newMMU() *MMU {
 	mmu := new(MMU)
-	mmu.bios = BOOTROM
-	mmu.biosDone = false
 
 	mmu.addToMMU(0x00, 0xFF)     //restart + interrupts?
 	mmu.addToMMU(0x100, 0x14F)   //cartridge header
@@ -29,6 +27,11 @@ func newMMU() *MMU {
 	mmu.addToMMU(0xFFFF, 0xFFFF) //Interrupt reg
 
 	return mmu
+}
+
+func (mmu *MMU) loadBios(bios []uint8) {
+	mmu.bios = bios
+	mmu.biosDone = false
 }
 
 func (mmu *MMU) readByte(address uint16) uint8 {

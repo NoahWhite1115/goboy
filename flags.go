@@ -52,8 +52,8 @@ func (f *Flags) flagsToByte() uint8 {
 	var out uint8 = 0
 
 	for i, v := range f.flagarr {
-		if v {
-			out |= (1<<i + 4)
+		if v == true {
+			out |= (1 << (i + 4))
 		}
 	}
 
@@ -62,7 +62,7 @@ func (f *Flags) flagsToByte() uint8 {
 
 func (f *Flags) flagsFromByte(in uint8) {
 	for i := 0; i < 4; i++ {
-		if (in>>(i+4) | 1) == 0 {
+		if (in >> (i + 4) & 1) == 0 {
 			f.flagarr[i] = false
 		} else {
 			f.flagarr[i] = true
