@@ -22,6 +22,15 @@ func newCPU(mmu *MMU) *CPU {
 	return cpu
 }
 
+func newCPUNoBios(mmu *MMU) *CPU {
+	cpu := new(CPU)
+	cpu.register = newRegisterNoBios()
+	cpu.opcodes = makeOpCodes()
+
+	cpu.mmu = mmu
+	return cpu
+}
+
 func (cpu *CPU) runCommand(debug bool) uint8 {
 	//TODO: interrupt handler
 

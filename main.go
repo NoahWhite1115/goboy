@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 )
@@ -14,14 +15,21 @@ func main() {
 
 	//display := flag.Bool("display", false, "display an SDL interface")
 
-	mmu := newMMU()
-	mmu.loadBios(BOOTROM)
-	cpu := newCPU(mmu)
+	cart := cartridgeHandler("./blargs/01-special.gb")
+	mmu := newMMUNoBios(cart)
+	//mmu.loadBios(BOOTROM)
+	cpu := newCPUNoBios(mmu)
 
 	//should this run in a go routine?
 	//ppu := newPPU(mmu, display)
 
 	for {
 		cpu.runCommand(true)
+
+		if mmu.readByte(0xff02) == 0x81 {
+			c := mmu.readByte(0xff01)
+			fmt.Printf("%d", c)
+			mmu.setByte(0xff02, 0x0)
+		}
 	}
 }

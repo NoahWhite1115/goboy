@@ -15,6 +15,20 @@ func newRegister() *Register {
 	return reg
 }
 
+func newRegisterNoBios() *Register {
+	reg := new(Register)
+	reg.f = newFlags()
+
+	reg.setAF(0x01b0)
+	reg.setBC(0x0013)
+	reg.setDE(0x00d8)
+	reg.setHL(0x014d)
+	reg.sp = 0xfffe
+	reg.pc = 0x100
+
+	return reg
+}
+
 func (r *Register) getByByte(find uint8) uint8 {
 	switch find {
 	case 'a':
