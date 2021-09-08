@@ -36,7 +36,7 @@ func newMMUNoBios(cart *Cartridge) *MMU {
 	mmu.addToMMU(0x00, 0xFF)            //restart + interrupts?
 	mmu.addExisting(0x100, cart.header) //cartridge header
 	mmu.addExisting(0x150, cart.rom0)   //cart rom 0
-	mmu.addToMMU(0x4000, 0x7FFF)        //cart rom 1-xx
+	mmu.addExisting(0x4000, cart.rom1)  //cart rom 1-xx
 	mmu.addToMMU(0x8000, 0x97FF)        //char ram
 	mmu.addToMMU(0x9800, 0x9BFF)        //BG map data 1
 	mmu.addToMMU(0x9C00, 0x9FFF)        //BG map data 2

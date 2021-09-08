@@ -6,7 +6,7 @@ import (
 )
 
 type Cartridge struct {
-	header, rom0 []uint8
+	header, rom0, rom1 []uint8
 }
 
 func cartridgeHandler(filename string) *Cartridge {
@@ -18,14 +18,20 @@ func cartridgeHandler(filename string) *Cartridge {
 	}
 
 	defer f.Close()
+	throwaway := make([]uint8, 0x100)
+	f.Read(throwaway)
 	header := make([]uint8, 0x50)
 	f.Read(header)
 
-	cartRom0 := make([]uint8, 0x3EAF)
+	cartRom0 := make([]uint8, 0x3EB0)
 	f.Read(cartRom0)
+
+	cartRom1 := make([]uint8, 0x4000)
+	f.Read(cartRom1)
 
 	cart.header = header
 	cart.rom0 = cartRom0
+	cart.rom1 = cartRom1
 
 	return cart
 }

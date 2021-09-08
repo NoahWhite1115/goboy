@@ -66,9 +66,9 @@ func makeOpCodes() []*Command {
 			r.a = m.readByte(r.BC())
 		})
 
-	opCodeArr[0x0c] = newCommand(4, 0, "INC C",
+	opCodeArr[0x0b] = newCommand(8, 0, "DEC BC",
 		func(r *Register, m *MMU, a []uint8) {
-			r.c = inc(r.c, r.f)
+			r.setBC(r.BC() - 1)
 		})
 
 	opCodeArr[0x0e] = newCommand(8, 1, "LD C, n",
@@ -112,14 +112,15 @@ func makeOpCodes() []*Command {
 			r.a = m.readByte(r.DE())
 		})
 
-	opCodeArr[0x1c] = newCommand(4, 0, "INC E",
-		func(r *Register, m *MMU, a []uint8) {
-			r.e = inc(r.e, r.f)
-		})
-
 	opCodeArr[0x1e] = newCommand(8, 1, "LD E, n",
 		func(r *Register, m *MMU, a []uint8) {
 			r.e = a[0]
+		})
+
+	opCodeArr[0x1f] = newCommand(4, 0, "RRA",
+		func(r *Register, m *MMU, a []uint8) {
+			r.a = rotRight(r.a, r.f)
+			r.f.setZero(false)
 		})
 
 	//TODO: set ticks to be variable
@@ -147,11 +148,6 @@ func makeOpCodes() []*Command {
 			r.setHL(r.HL() + 1)
 		})
 
-	opCodeArr[0x24] = newCommand(4, 0, "INC H",
-		func(r *Register, m *MMU, a []uint8) {
-			r.h = inc(r.h, r.f)
-		})
-
 	opCodeArr[0x26] = newCommand(8, 1, "LD H, n",
 		func(r *Register, m *MMU, a []uint8) {
 			r.h = a[0]
@@ -165,9 +161,24 @@ func makeOpCodes() []*Command {
 			}
 		})
 
+	opCodeArr[0x2a] = newCommand(8, 0, "LD A, (HL+)",
+		func(r *Register, m *MMU, a []uint8) {
+			r.setHL(r.HL() + 1)
+			r.a = m.readByte(r.HL())
+		})
+
 	opCodeArr[0x2e] = newCommand(8, 1, "LD L, n",
 		func(r *Register, m *MMU, a []uint8) {
 			r.e = a[0]
+		})
+
+	//TODO: set ticks to be variable
+	//TODO: correct behavior here
+	opCodeArr[0x30] = newCommand(8, 1, "JR NC, n",
+		func(r *Register, m *MMU, a []uint8) {
+			if !r.f.getCarry() {
+				r.pc = uint16(int(r.pc) + int(int8(a[0])))
+			}
 		})
 
 	opCodeArr[0x31] = newCommand(12, 2, "LD SP, nn",
@@ -210,7 +221,13 @@ func makeOpCodes() []*Command {
 				r.setByByte(v, val)
 			})
 
-		opCodeArr[0x40+i] = newCommand(4, 0, "LD B, "+string(v),
+		opCodeArr[0x40+i] = newCommand(8, 0, "LD B, "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				val := m.readByte(r.HL())
+				r.setByByte(v, val)
+			})
+
+		opCodeArr[0x46+i*0x08] = newCommand(4, 0, "LD "+string(v)+", (HL)",
 			func(r *Register, m *MMU, a []uint8) {
 				val := r.getByByte(v)
 				r.b = val
@@ -244,6 +261,11 @@ func makeOpCodes() []*Command {
 			func(r *Register, m *MMU, a []uint8) {
 				val := r.getByByte(v)
 				r.l = val
+			})
+
+		opCodeArr[0x70+i] = newCommand(8, 0, "LD (HL), "+string(v),
+			func(r *Register, m *MMU, a []uint8) {
+				m.setByte(r.HL(), r.getByByte(v))
 			})
 
 		opCodeArr[0x78+i] = newCommand(4, 0, "LD A, "+string(v),
@@ -298,14 +320,36 @@ func makeOpCodes() []*Command {
 			r.setBC(pop(r, m))
 		})
 
+	//TODO: set ticks to be variable
+	//TODO: correct behavior here
+	opCodeArr[0xc2] = newCommand(12, 2, "JP NZ, u16",
+		func(r *Register, m *MMU, a []uint8) {
+			if !r.f.getZero() {
+				r.pc = toWord(a[1], a[0])
+			}
+		})
+
+	opCodeArr[0xc3] = newCommand(12, 2, "JP u16",
+		func(r *Register, m *MMU, a []uint8) {
+			r.pc = toWord(a[1], a[0])
+		})
+
 	opCodeArr[0xc5] = newCommand(16, 0, "PUSH BC",
 		func(r *Register, m *MMU, a []uint8) {
 			push(r, m, r.BC())
 		})
 
-	opCodeArr[0xce] = newCommand(8, 1, "ADC A, u8",
+	opCodeArr[0xc9] = newCommand(16, 0, "RET",
 		func(r *Register, m *MMU, a []uint8) {
-			r.a = addC(r.a, a[0], r.f)
+			r.pc = pop(r, m)
+		})
+
+	//TODO: fix timing
+	opCodeArr[0xcc] = newCommand(24, 2, "CALL Z, u16",
+		func(r *Register, m *MMU, a []uint8) {
+			if r.f.getZero() {
+				call(r, m, toWord(a[1], a[0]))
+			}
 		})
 
 	opCodeArr[0xcd] = newCommand(24, 2, "CALL u16",
@@ -313,9 +357,21 @@ func makeOpCodes() []*Command {
 			call(r, m, toWord(a[1], a[0]))
 		})
 
-	opCodeArr[0xc9] = newCommand(16, 0, "RET",
+	opCodeArr[0xce] = newCommand(8, 1, "ADC A, u8",
 		func(r *Register, m *MMU, a []uint8) {
-			r.pc = pop(r, m)
+			r.a = addC(r.a, a[0], r.f)
+		})
+
+	opCodeArr[0xd0] = newCommand(20, 1, "RET NC",
+		func(r *Register, m *MMU, a []uint8) {
+			if !r.f.getCarry() {
+				r.pc = pop(r, m)
+			}
+		})
+
+	opCodeArr[0xd6] = newCommand(8, 1, "SUB A, u8",
+		func(r *Register, m *MMU, a []uint8) {
+			r.a = sub(r.a, a[0], r.f)
 		})
 
 	opCodeArr[0xe0] = newCommand(8, 1, "LD (FF00+u8), A",
@@ -326,6 +382,11 @@ func makeOpCodes() []*Command {
 	opCodeArr[0xe2] = newCommand(8, 0, "LD (FF00+C), A",
 		func(r *Register, m *MMU, a []uint8) {
 			m.setByte(uint16(0xff00)+uint16(r.c), r.a)
+		})
+
+	opCodeArr[0xe9] = newCommand(4, 0, "JP HL",
+		func(r *Register, m *MMU, a []uint8) {
+			r.pc = r.HL()
 		})
 
 	opCodeArr[0xea] = newCommand(16, 2, "LD (u16), A",
@@ -477,12 +538,25 @@ func call(r *Register, m *MMU, val uint16) {
 }
 
 func rotLeft(val uint8, f *Flags) uint8 {
-	newVal := val << 7
+	newVal := val << 1
 	if f.getCarry() {
 		newVal |= 1
 	}
 
 	f.setCarry((val & 1 << 7) != 0)
+	f.setZero(newVal == 0)
+	f.setN(false)
+	f.setH(false)
+	return newVal
+}
+
+func rotRight(val uint8, f *Flags) uint8 {
+	newVal := val >> 1
+	if f.getCarry() {
+		newVal |= 1 << 7
+	}
+
+	f.setCarry((val & 1) != 0)
 	f.setZero(newVal == 0)
 	f.setN(false)
 	f.setH(false)
